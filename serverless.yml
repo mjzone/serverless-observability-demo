@@ -1,0 +1,67 @@
+service: monitoring-demo-prep
+frameworkVersion: "2"
+
+provider:
+  name: aws
+  runtime: nodejs12.x
+  lambdaHashingVersion: 20201221
+
+functions:
+  orderProcess:
+    handler: handler.orderProcess
+    iamRoleStatements:
+      - Effect: Allow
+        Action:
+          - dynamodb:*
+        Resource:
+          - !GetAtt OrderTable.Arn
+    environment:
+      ORDER_TABLE_NAME: !Ref OrderTable
+    events:
+      - sqs:
+          arn: !GetAtt OrderReceiveQueue.Arn
+          batchSize: 1
+
+  receiveOrder:
+    handler: handler.receiveOrder
+    iamRoleStatements:
+      - Effect: Allow
+        Action:
+          - sqs:*
+        Resource:
+          - !GetAtt OrderReceiveQueue.Arn
+    environment:
+      ORDER_QUEUE_URL: !Ref OrderReceiveQueue
+      ORDER_TABLE_NAME: !Ref OrderTable
+    events:
+      - http:
+          path: order/receive
+          method: post
+
+plugins:
+  - serverless-iam-roles-per-function
+
+resources:
+  Resources:
+    OrderReceiveQueue:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: OrderReceiveQueue
+        RedrivePolicy: 
+          deadLetterTargetArn: !GetAtt OrderReceiveDLQ.Arn
+          maxReceiveCount: 1
+    OrderReceiveDLQ:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: OrderReceiveDLQ
+    OrderTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        BillingMode: PAY_PER_REQUEST
+        TableName: OrderTable
+        AttributeDefinitions:
+          - AttributeName: orderId
+            AttributeType: S
+        KeySchema:
+          - AttributeName: orderId
+            KeyType: HASH
