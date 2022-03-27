@@ -47,13 +47,6 @@ resources:
       Type: AWS::SQS::Queue
       Properties:
         QueueName: OrderReceiveQueue
-        RedrivePolicy: 
-          deadLetterTargetArn: !GetAtt OrderReceiveDLQ.Arn
-          maxReceiveCount: 1
-    OrderReceiveDLQ:
-      Type: AWS::SQS::Queue
-      Properties:
-        QueueName: OrderReceiveDLQ
     OrderTable:
       Type: AWS::DynamoDB::Table
       Properties:
